@@ -14,7 +14,7 @@ def clean_text(text):
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
-#Read only 5,000 rows — no memory issues
+#Read only 10,000 rows — no memory issues
 parquet_file = pq.ParquetFile("RC_2012-02.parquet")
 batch = next(parquet_file.iter_batches(batch_size=10_000))
 df = batch.to_pandas()
@@ -42,18 +42,64 @@ df["body"] = df["body"].apply(clean_text)
 # date time
 df["created_dt"] = pd.to_datetime(df["created_utc"], unit="s", utc=True)
 
-pd.set_option('display.max_columns', None)
-pd.set_option('display.width', 1000)
-print(df.head(5))
+# sort by subreddit_id and time
+df = df.sort_values(by=["subreddit_id", "created_utc"], ascending=[True, True])
 
 # balance dataset
-df = df.sample(n=5000, random_state=42)
+df = df.sample(frac=0.5, random_state=42)
 
-
-# # save test dataset
-df.to_parquet("reddit_clean_data.parquet", index=False)
+# save test dataset csv
 df.to_csv("reddit_clean_data.csv", index=False)
 
-print()
-print(f"Clean_data shape: {df.shape}")
-print("Saved reddit_test_data.parquet and csv")
+# --- Reshape: group comments by post (link_id) ---
+grouped = (
+    df.groupby(["link_id", "subreddit", "subreddit_id"])
+    .apply(lambda g: pd.Series({
+        "post_author": str(g["author"].iloc[0]),
+        "post_body": str(g["body"].iloc[0]),
+        "post_created_utc": g["created_utc"].min(),
+        "comments": g[["author", "body", "created_utc"]].rename(columns={
+            "author": "comment_author",
+            "body": "comment_body",
+            "created_utc": "comment_utc"
+        }).to_dict(orient="records")
+    }))
+    .reset_index()
+)
+
+grouped = grouped.rename(columns={"link_id": "post_id"})
+grouped = grouped[["subreddit", "subreddit_id", "post_id",
+                   "post_author", "post_body", "post_created_utc", "comments"]]
+
+# view
+pd.set_option('display.max_columns', None)
+pd.set_option('display.width', 1000)
+print(grouped.head(7))
+print(f"\nGrouped Data Shape: {grouped.shape}")
+
+grouped.to_parquet("reddit_grouped.parquet", index=False)
+print("\nSaved reddit_grouped.parquet")
+
+# Display full parquet file
+df_check = pd.read_parquet("reddit_grouped.parquet")
+
+# Save to readable text file
+with open("reddit_grouped_check.txt", "w") as f:
+    for i, row in df_check.iterrows():
+        f.write(f"\n{'='*80}\n")
+        f.write(f"ROW {i}\n")
+        f.write(f"{'='*80}\n")
+        f.write(f"subreddit:        {row['subreddit']}\n")
+        f.write(f"subreddit_id:     {row['subreddit_id']}\n")
+        f.write(f"post_id:          {row['post_id']}\n")
+        f.write(f"post_author:      {row['post_author']}\n")
+        f.write(f"Post_body:        {row['post_body']}\n")
+        f.write(f"post_created_utc: {row['post_created_utc']}\n")
+        f.write(f"\nCOMMENTS ({len(row['comments'])}):\n")
+        for j, c in enumerate(row['comments']):
+            f.write(f"  [{j}] author: {c['comment_author']}\n")
+            f.write(f"      utc:    {c['comment_utc']}\n")
+            f.write(f"      body:   {c['comment_body']}\n\n")
+
+
+print("Saved as text to view")

@@ -58,7 +58,8 @@ grouped = (
         "post_author": str(g["author"].iloc[0]),
         "post_body": str(g["body"].iloc[0]),
         "post_created_utc": g["created_utc"].min(),
-        "comments": g[["author", "body", "created_utc"]].rename(columns={
+
+        "comments": g.iloc[1:][["author", "body", "created_utc"]].rename(columns={
             "author": "comment_author",
             "body": "comment_body",
             "created_utc": "comment_utc"
@@ -74,7 +75,7 @@ grouped = grouped[["subreddit", "subreddit_id", "post_id",
 # view
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', 1000)
-print(grouped.head(7))
+print(grouped.head(5))
 print(f"\nGrouped Data Shape: {grouped.shape}")
 
 grouped.to_parquet("reddit_grouped.parquet", index=False)
@@ -95,7 +96,10 @@ with open("reddit_grouped_check.txt", "w") as f:
         f.write(f"post_author:      {row['post_author']}\n")
         f.write(f"Post_body:        {row['post_body']}\n")
         f.write(f"post_created_utc: {row['post_created_utc']}\n")
-        f.write(f"\nCOMMENTS ({len(row['comments'])}):\n")
+
+        if len(row['comments']) > 0:
+            f.write(f"\nCOMMENTS ({len(row['comments'])}):\n")
+
         for j, c in enumerate(row['comments']):
             f.write(f"  [{j}] author: {c['comment_author']}\n")
             f.write(f"      utc:    {c['comment_utc']}\n")

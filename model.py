@@ -1,7 +1,7 @@
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, GenerationConfig
 
-GENERATION_MODEL = "meta-llama/Llama-3.2-1B-Instruct"
+GENERATION_MODEL = "Qwen/Qwen2.5-1.5B-Instruct"
 GENERATION_CONFIG = GenerationConfig(
     max_new_tokens=2048,
     do_sample=False, # No sampling since this is research work, needs consistent results
@@ -21,7 +21,7 @@ class DetoxificationModel:
     def _load_model(self):
         # TODO: Add check for local LoRA model
         self.tokenizer = AutoTokenizer.from_pretrained(GENERATION_MODEL)
-        self.model = AutoModelForCausalLM.from_pretrained(GENERATION_MODEL, device_map="auto")
+        self.model = AutoModelForCausalLM.from_pretrained(GENERATION_MODEL).to(self.device)
 
 
     def get_system_prompt(self):
@@ -32,11 +32,15 @@ class DetoxificationModel:
         """
 
     def get_user_prompt(self, text):
-        return f"Text: {text}"
+        return f"{text}"
 
     def detoxify(self, text: str):
         # Build instruction prompt
-        prompt = {"system": self.get_system_prompt(), "user": self.get_user_prompt(text)}
+        print(f"Running detoxify on: {text}")
+        prompt = [
+            {"role": "system", "content": self.get_system_prompt()},
+            {"role": "user", "content": self.get_user_prompt(text)}
+        ]
         inputs = self.tokenizer.apply_chat_template(prompt, tokenize=True, add_generation_prompt=True, return_tensors="pt").to(self.device)
 
         with torch.no_grad():
@@ -48,7 +52,10 @@ class DetoxificationModel:
             )
 
         raw_response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-        completion = raw_response[len(prompt):].strip()
+
+        input_length = inputs["input_ids"].shape[-1]
+        new_tokens = outputs[0][input_length:]
+        completion = self.tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
 
         return {
             "prompt": prompt,

@@ -22,16 +22,22 @@ class DetoxEvaluator:
         emb2 = self.sim_model.encode(text2, convert_to_tensor=True)
         return F.cosine_similarity(emb1.unsqueeze(0), emb2.unsqueeze(0)).item()
 
-    def toxicity_detection(self, text: str) -> float:
+    def toxicity_detection(self, text: str) -> dict:
         out = self.tox_model.predict(text)
         # TODO: Use more metrics than just toxicity
-        return out['toxicity']
+        return {
+            "toxicity": out["toxicity"],
+            "severe_toxicity": out["severe_toxicity"]
+        }
 
     def run_pipeline(self, original_text: str, detoxified_text: str) -> dict:
         # Run each evaluation and return as an eval dict
         sim = self.cosine_similarity(original_text, detoxified_text)
-        tox_change = self.toxicity_detection(detoxified_text) - self.toxicity_detection(original_text)
+        tox_orig = self.toxicity_detection(original_text)
+        tox_new = self.toxicity_detection(detoxified_text)
+
         return {
             "cosine_similarity": sim,
-            "toxicity_change": tox_change,
+            "toxicity_change": tox_new["toxicity"]-tox_orig["toxicity"],
+            "severe_toxicity_change": tox_new["severe_toxicity"]-tox_orig["severe_toxicity"],
         }

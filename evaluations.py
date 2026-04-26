@@ -26,8 +26,8 @@ class DetoxEvaluator:
         out = self.tox_model.predict(text)
         # TODO: Use more metrics than just toxicity
         return {
-            "toxicity": out["toxicity"],
-            "severe_toxicity": out["severe_toxicity"]
+            "toxicity": float(out["toxicity"]),
+            "severe_toxicity": float(out["severe_toxicity"])
         }
 
     def run_pipeline(self, original_text: str, detoxified_text: str) -> dict:

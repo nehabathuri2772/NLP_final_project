@@ -3,6 +3,7 @@ from transformers import GenerationConfig
 # Model Configs
 GENERATION_MODEL = "Qwen/Qwen2.5-1.5B-Instruct"
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+JUDGE_MODEL = "Qwen/Qwen2.5-3B-Instruct"
 GENERATION_CONFIG = GenerationConfig(
     max_new_tokens=2048,
     do_sample=False, # No sampling since this is research work, needs consistent results

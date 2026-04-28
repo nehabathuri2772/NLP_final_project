@@ -61,6 +61,16 @@ def load_toxic_comments(input_path=CLEANED_PARQUET_PATH, output_path=LABELED_PAR
 
     return df_labeled
 
+def dynamic_avg_with_prefix(per_comment_metrics):
+    sums, counts = {}, {}
+
+    for m in per_comment_metrics:
+        for k, v in m.items():
+            if isinstance(v, (int, float)) and not isinstance(v, bool) and v is not None:
+                sums[k] = sums.get(k, 0.0) + v
+                counts[k] = counts.get(k, 0) + 1
+
+    return {f"avg_{k}": sums[k] / counts[k] for k in sums}
 
 def run_detox_evaluation(input_path=LABELED_PARQUET_PATH, output_path=DETOXIFIED_PARQUET_PATH, output_log_path=OUTPUT_LOG_FILE):
     evaluator = DetoxEvaluator()
@@ -79,9 +89,9 @@ def run_detox_evaluation(input_path=LABELED_PARQUET_PATH, output_path=DETOXIFIED
                     # Ignore empty comment chains
                     continue
 
+                print(f"Comment chain {idx} started: {len(comment_chain)}\n")
                 # Before detoxify, compute old chain avg
                 old_avg_toxicity = sum(c["toxicity_score"] for c in comment_chain) / len(comment_chain)
-
                 # Step 1: Detoxify all toxic comments in this chain
                 toxic_results = []  # List: {comment, original, detoxified, response}
                 for comment in comment_chain:
@@ -110,10 +120,9 @@ def run_detox_evaluation(input_path=LABELED_PARQUET_PATH, output_path=DETOXIFIED
                 for res, metrics in zip(toxic_results, per_comment_metrics):
                     comment = res["comment"]
                     comment["detoxified_comment_body"] = res["detoxified"]
-                    comment["cosine_similarity"] = metrics["cosine_similarity"]
-                    comment["toxicity_change"] = metrics["toxicity_change"]
-                    comment["severe_toxicity_change"] = metrics["severe_toxicity_change"]
-                    comment["toxicity_score"] = comment["toxicity_score"] + metrics["toxicity_change"]
+                    comment["old_toxicity_score"] = comment["toxicity_score"] # Keep old toxicity score
+                    comment["toxicity_score"] = comment["toxicity_score"] + metrics["toxicity_change"] # Update toxicity score
+                    comment.update(metrics) # Add all eval metrics
 
                 # Step 4: Write one JSON line per toxic comment (RL training format)
                 for res, metrics in zip(toxic_results, per_comment_metrics):
@@ -128,25 +137,27 @@ def run_detox_evaluation(input_path=LABELED_PARQUET_PATH, output_path=DETOXIFIED
                     f.write(json.dumps(json_row) + "\n")
 
                 # Collect toxicity scores for ALL comments in the chain
-                n = len(per_comment_metrics)
-                avg_cos = sum(m["cosine_similarity"] for m in per_comment_metrics) / n
-                avg_tox_change = sum(m["toxicity_change"] for m in per_comment_metrics) / n
-                avg_severe_change = sum(m["severe_toxicity_change"] for m in per_comment_metrics) / n
+                chain_avgs = dynamic_avg_with_prefix(per_comment_metrics)
+                print("Chain Metrics:")
+                for k, v in sorted(chain_avgs.items()):
+                    print(f"\t{k}: {v}")
 
                 new_avg_toxicity = sum(c["toxicity_score"] for c in comment_chain) / len(comment_chain)
-                print(f"Metrics:\n\tCos-Avg: {avg_cos}\n\tDeltaToxAvg: {avg_tox_change}\n\tDeltaSevereAvg {avg_severe_change}")
                 print(f"\tAvg Chain Toxicity {old_avg_toxicity} -> {new_avg_toxicity}\n")
 
-                # Append statistics
-                chunk.at[idx, "chain_cosine_similarity_avg"] = avg_cos
-                chunk.at[idx, "chain_toxicity_change_avg"] = avg_tox_change
-                chunk.at[idx, "chain_severe_toxicity_change_avg"] = avg_severe_change
-                chunk.at[idx, "chain_toxic_comment_count"] = n
-                chunk.at[idx, "chain_avg_old_toxicity"] = old_avg_toxicity
-                chunk.at[idx, "chain_avg_new_toxicity"] = new_avg_toxicity
+                extra_metrics = {
+                    "chain_toxic_comment_count": len(per_comment_metrics),
+                    "chain_avg_old_toxicity": old_avg_toxicity,
+                    "chain_avg_new_toxicity": new_avg_toxicity,
+                }
 
+                all_metrics = {**chain_avgs, **extra_metrics}
+
+                # Append statistics
+                for k, v in all_metrics.items():
+                    chunk.at[idx, k] = v
                 f.flush()
-                print(f"Comment chain {idx} completed: {len(toxic_results)}/{len(comment_chain)} detoxified")
+                print(f"Comment chain {idx} completed: {len(toxic_results)}/{len(comment_chain)} detoxified\n")
 
             # After processing all rows in this chunk, append the enriched chunk
             modified_chunks.append(chunk)

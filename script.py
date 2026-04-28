@@ -3,15 +3,20 @@ import torch
 import pandas as pd
 from datasets import load_dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
+from detoxify import Detoxify
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
-os.environ["HF_TOKEN"] = "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"  # paste your new token here
+HF_TOKEN = "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"
+os.environ["HF_TOKEN"] = HF_TOKEN
+# paste your new token here
 
 # ── Config ────────────────────────────────────────────────────────────────────
 GENERATION_MODEL = "meta-llama/Llama-3.2-1B-Instruct"
 NUM_ROWS = 10000
 
-
+TOXICITY_THRESHOLD = 0.5
 
 # ── Detoxification Model ──────────────────────────────────────────────────────
 class DetoxificationModel:
@@ -111,6 +116,24 @@ for item in ds.take(NUM_ROWS):
 df = pd.DataFrame(rows)
 print(f"DataFrame loaded! Shape: {df.shape}")
 print(df.head(3))
+
+# ── Filter Toxic Comments ─────────────────────────────────────────────────────
+print("Filtering toxic comments...")
+filter_model = Detoxify('original')
+
+toxic_indices = []
+for i, row in df.iterrows():
+    text = str(row["Post_body"])
+    if text.strip():
+        score = filter_model.predict(text)["toxicity"]
+        df.at[i, "toxicity_before"] = score
+        if score >= TOXICITY_THRESHOLD:
+            toxic_indices.append(i)
+    if (i + 1) % 100 == 0:
+        print(f"  Filtered {i + 1}/{NUM_ROWS} rows... Found {len(toxic_indices)} toxic so far")
+
+toxic_df = df.loc[toxic_indices].copy()
+print(f"\nFound {len(toxic_indices)} toxic comments out of {NUM_ROWS} total ({len(toxic_indices)/NUM_ROWS*100:.1f}%)")
 
 # ── Run Detoxification ────────────────────────────────────────────────────────
 model = DetoxificationModel()

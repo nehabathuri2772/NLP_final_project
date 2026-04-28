@@ -9,10 +9,9 @@ import pyarrow.dataset as ds
 from datasets import load_dataset
 import re
 
-REDDIT_DATASET = "fddemarco/pushshift-reddit-comments"
-BATCH_SIZE = 10_000
+from constants import CLEANED_PARQUET_PATH, CONDENSED_PARQUET_PATH, BATCH_SIZE, REDDIT_DATASET, LOCAL_DATASET_PATH
 
-def load_reddit_data(local=False, local_path="./data/pushshift-reddit-comments"):
+def load_reddit_data(local=False, local_path=LOCAL_DATASET_PATH):
     if local:
         print(f"Loading dataset from local folder: {local_path}")
         # Check for any parquet files locally
@@ -75,7 +74,7 @@ def clean_comment(comment):
     }
 
 
-def stream_and_write_cleaned(dataset, output_parquet="./data/cleaned_comments.parquet", batch_size=BATCH_SIZE, num_batches=10):
+def stream_and_write_cleaned(dataset, output_path=CONDENSED_PARQUET_PATH, batch_size=BATCH_SIZE, num_batches=10):
     writer = None
 
     for batch_num,df_batch in enumerate(dataset(batch_size=batch_size)):
@@ -92,7 +91,7 @@ def stream_and_write_cleaned(dataset, output_parquet="./data/cleaned_comments.pa
             df_out = pd.DataFrame(cleaned_batch)
             table = pa.Table.from_pandas(df_out)
             if writer is None:
-                writer = pq.ParquetWriter(output_parquet, table.schema)
+                writer = pq.ParquetWriter(output_path, table.schema)
             writer.write_table(table)
             print(f"Written batch {batch_num} ({len(cleaned_batch)} comments)")
 
@@ -102,15 +101,15 @@ def stream_and_write_cleaned(dataset, output_parquet="./data/cleaned_comments.pa
 
     if writer:
         writer.close()
-    print(f"Finished. Saved output to {output_parquet}")
+    print(f"Finished. Saved output to {output_path}")
 
 
-def group_comments_with_duckdb(input_parquet="./data/cleaned_comments.parquet", output_parquet="./data/reddit_cleaned.parquet"):
+def group_comments_with_duckdb(input_path=CONDENSED_PARQUET_PATH, output_path=CLEANED_PARQUET_PATH):
     # Using duckdb to handle big data grouping
     con = duckdb.connect()
 
     # Register the Parquet file as a view
-    con.execute(f"CREATE OR REPLACE VIEW comments AS SELECT * FROM '{input_parquet}'")
+    con.execute(f"CREATE OR REPLACE VIEW comments AS SELECT * FROM '{input_path}'")
 
     # SQL query replicating the Spark logic
     query = """
@@ -153,8 +152,8 @@ def group_comments_with_duckdb(input_parquet="./data/cleaned_comments.parquet", 
     """
 
     # Execute and write to Parquet (DuckDB streams via RDD writing method)
-    con.execute(f"COPY ({query}) TO '{output_parquet}' (FORMAT 'parquet')")
-    print(f"Grouped data saved to {output_parquet}")
+    con.execute(f"COPY ({query}) TO '{output_path}' (FORMAT 'parquet')")
+    print(f"Grouped data saved to {output_path}")
 
     # Preview first 5 rows
     sample = con.execute(f"{query} LIMIT 5").df()
@@ -162,8 +161,8 @@ def group_comments_with_duckdb(input_parquet="./data/cleaned_comments.parquet", 
     print(sample)
 
     # Remove old db parquet
-    os.remove(input_parquet)
-    print(f"Removed input file: {input_parquet}")
+    os.remove(input_path)
+    print(f"Removed input file: {input_path}")
 
     con.close()
 

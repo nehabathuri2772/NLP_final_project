@@ -1,12 +1,9 @@
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, GenerationConfig
+from torch import nn
+from transformers import AutoTokenizer
+from trl.experimental.ppo import AutoModelForCausalLMWithValueHead
 
-GENERATION_MODEL = "Qwen/Qwen2.5-1.5B-Instruct"
-GENERATION_CONFIG = GenerationConfig(
-    max_new_tokens=2048,
-    do_sample=False, # No sampling since this is research work, needs consistent results
-    temperature=0.
-)
+from constants import GENERATION_MODEL, GENERATION_CONFIG
 
 class DetoxificationModel:
 
@@ -14,41 +11,51 @@ class DetoxificationModel:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
         # Load model & tokenizer
-        print(f"Loading detox model {GENERATION_MODEL} ...")
+        print(f"Loading detox model {GENERATION_MODEL} on {self.device}...")
         self._load_model()
         self.model.eval()
 
     def _load_model(self):
         # TODO: Add check for local LoRA model
         self.tokenizer = AutoTokenizer.from_pretrained(GENERATION_MODEL)
-        self.model = AutoModelForCausalLM.from_pretrained(GENERATION_MODEL).to(self.device)
+        self.model = AutoModelForCausalLMWithValueHead.from_pretrained(GENERATION_MODEL).to(self.device)
+
+        # Add new items to gen config
+        GENERATION_CONFIG.device = self.device
+        GENERATION_CONFIG.pad_token_id = self.tokenizer.eos_token_id
+        GENERATION_CONFIG.eos_token_id = self.tokenizer.eos_token_id
 
 
     def get_system_prompt(self):
-        return f"""
-        You are a helpful assistant. Rewrite the following text so that it
-        is completely non-toxic, polite, and preserves its original meaning
-        as much as possible. Only output the rewritten text, nothing else.
-        """
+        return "You are a helpful assistant. Rewrite the following text so that it" \
+                " is completely non-toxic, polite, and preserves its original meaning" \
+                " as much as possible. Keep the word length similar to the original response." \
+                " Only output the rewritten text, nothing else."
 
     def get_user_prompt(self, text):
-        return f"{text}"
+        return f"Rewrite this text: '{text}'"
+
+    def build_prompt(self, toxic_text):
+        conversation = [
+            {"role": "system", "content": self.get_system_prompt()},
+            {"role": "user", "content": self.get_user_prompt(toxic_text)}
+        ]
+        prompt_str = self.tokenizer.apply_chat_template(
+            conversation,
+            tokenize=False,
+            add_generation_prompt=True
+        )
+        return prompt_str
 
     def detoxify(self, text: str):
         # Build instruction prompt
-        print(f"Running detoxify on: {text}")
-        prompt = [
-            {"role": "system", "content": self.get_system_prompt()},
-            {"role": "user", "content": self.get_user_prompt(text)}
-        ]
-        inputs = self.tokenizer.apply_chat_template(prompt, tokenize=True, add_generation_prompt=True, return_tensors="pt").to(self.device)
+        prompt = self.build_prompt(text)
+        inputs = self.tokenizer(prompt, return_tensors="pt", add_special_tokens=False).to(self.device)
 
         with torch.no_grad():
             outputs = self.model.generate(
                 **inputs,
                 generation_config=GENERATION_CONFIG,
-                pad_token_id=self.tokenizer.eos_token_id,
-                eos_token_id=self.tokenizer.eos_token_id,
             )
 
         raw_response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
@@ -63,7 +70,18 @@ class DetoxificationModel:
             "raw_response": raw_response,
         }
 
-class AggregatorModel:
-    # TODO: Design aggregator to take in stats from detoxification and compute score
-    def __init__(self):
-        pass
+class AggregatorModel(nn.Module):
+    # Small MLP for Aggregation
+
+    def __init__(self, input_dim=3, hidden_dim=64):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, 1)
+        )
+
+    def forward(self, x):
+        return self.net(x).squeeze(-1)

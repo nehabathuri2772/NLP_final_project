@@ -1,43 +1,59 @@
+from typing import List
+
 import torch
 import torch.nn.functional as F
 from sentence_transformers import SentenceTransformer
 from detoxify import Detoxify
 
-# These should be consistent eval metrics
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+from constants import EMBEDDING_MODEL
 
 class DetoxEvaluator:
 
     def __init__(self):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-
+        print(f"Loading DetoxEvaluator on {self.device}...")
         # Sentence embedding model for cosine similarity
         self.sim_model = SentenceTransformer(EMBEDDING_MODEL, device=str(self.device))
 
         # Toxicity classifier
         self.tox_model = Detoxify('original')
 
-    def cosine_similarity(self, text1: str, text2: str) -> float:
-        emb1 = self.sim_model.encode(text1, convert_to_tensor=True)
-        emb2 = self.sim_model.encode(text2, convert_to_tensor=True)
-        return F.cosine_similarity(emb1.unsqueeze(0), emb2.unsqueeze(0)).item()
+    def cosine_similarity(self, texts1: List[str], texts2: List[str]) -> List[float]:
+        all_texts = texts1 + texts2
+        # Embed texts together for less system use
+        embeddings = self.sim_model.encode(all_texts, convert_to_tensor=True)
+        n = len(texts1)
+        emb1 = embeddings[:n]
+        emb2 = embeddings[n:]
 
-    def toxicity_detection(self, text: str) -> dict:
-        out = self.tox_model.predict(text)
+        similarities = F.cosine_similarity(emb1, emb2)
+        return similarities.tolist()
+
+    def toxicity_detection(self, texts: List[str]) -> List[dict]:
+        out = self.tox_model.predict(texts)
         # TODO: Use more metrics than just toxicity
-        return {
-            "toxicity": float(out["toxicity"]),
-            "severe_toxicity": float(out["severe_toxicity"])
-        }
+        results = []
+        for i in range(len(texts)):
+            results.append({
+                "toxicity": float(out["toxicity"][i]),
+                "severe_toxicity": float(out["severe_toxicity"][i])
+            })
+        return results
 
-    def run_pipeline(self, original_text: str, detoxified_text: str) -> dict:
-        # Run each evaluation and return as an eval dict
-        sim = self.cosine_similarity(original_text, detoxified_text)
-        tox_orig = self.toxicity_detection(original_text)
-        tox_new = self.toxicity_detection(detoxified_text)
+    def run_pipeline(self, original_texts: List[str], detoxified_texts: List[str]) -> List[dict]:
+        # 1. Batch cosine similarity
+        sims = self.cosine_similarity(original_texts, detoxified_texts)
 
-        return {
-            "cosine_similarity": sim,
-            "toxicity_change": tox_new["toxicity"]-tox_orig["toxicity"],
-            "severe_toxicity_change": tox_new["severe_toxicity"]-tox_orig["severe_toxicity"],
-        }
+        # 2. Batch toxicity detection
+        tox_orig_list = self.toxicity_detection(original_texts)
+        tox_new_list = self.toxicity_detection(detoxified_texts)
+
+        # 3. Combine results
+        results = []
+        for i in range(len(original_texts)):
+            results.append({
+                "cosine_similarity": sims[i],
+                "toxicity_change": tox_new_list[i]["toxicity"] - tox_orig_list[i]["toxicity"],
+                "severe_toxicity_change": tox_new_list[i]["severe_toxicity"] - tox_orig_list[i]["severe_toxicity"],
+            })
+        return results

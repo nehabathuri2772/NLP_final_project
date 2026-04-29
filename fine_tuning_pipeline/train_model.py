@@ -59,7 +59,6 @@ class GRPOTrainingPipeline:
             for e in evals
         ], dtype=np.float32)
         norm = self.scaler.transform(raw) # shape (batch_size, n_features)
-        print(f"Norm: {norm}")
         return norm
 
     def get_reward(self, original_texts: list, detoxified_texts: list):
@@ -68,7 +67,6 @@ class GRPOTrainingPipeline:
         vec_tensor = torch.tensor(metrics_vec, dtype=torch.float32, device=DEVICE).unsqueeze(0)
         with torch.no_grad():
             rewards = self.reward_model(vec_tensor) # shape (batch_size, 1)
-        print(f"Rewards: {rewards}")
         return rewards.cpu().tolist()
 
     # GRPOTrainer wants [list prompts, list completions] -> list floats score.
@@ -81,7 +79,6 @@ class GRPOTrainingPipeline:
         # Retrieve toxic_texts from prompts since data was not organized well
         toxic_texts = [text.split("text: '")[1].split("'\n")[0] for text in prompts]
 
-        print(f"Example:\nP:\n{prompts[-1]}\n{'-'*20}\nT:\n{toxic_texts[-1]}\n{'-'*20}\nD:\n{completions[-1]}")
         rewards = self.get_reward(toxic_texts, completions)
         return rewards
 

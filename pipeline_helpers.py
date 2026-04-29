@@ -89,17 +89,18 @@ def run_detox_evaluation(input_path=LABELED_PARQUET_PATH, output_path=DETOXIFIED
                     # Ignore empty comment chains
                     continue
 
-                print(f"Comment chain {idx} started: {len(comment_chain)}\n")
+                print(f"--- Comment chain {idx} started: {len(comment_chain)} comments ---\n")
                 # Before detoxify, compute old chain avg
                 old_avg_toxicity = sum(c["toxicity_score"] for c in comment_chain) / len(comment_chain)
                 # Step 1: Detoxify all toxic comments in this chain
+                print("\tRunning Detoxification Model:")
                 toxic_results = []  # List: {comment, original, detoxified, response}
                 for comment in comment_chain:
                     if comment.get("toxic", False):
                         toxic_text = comment.get("comment_body")
-                        print(f"\t[RAW]: {toxic_text}")
+                        print(f"\t\t[RAW]: {toxic_text}")
                         response = model.detoxify(toxic_text)
-                        print(f"\t[RES]: {response["completion"]}")
+                        print(f"\t\t[RES]: {response["completion"]}")
                         toxic_results.append({
                             "comment": comment,
                             "original": toxic_text,
@@ -109,9 +110,11 @@ def run_detox_evaluation(input_path=LABELED_PARQUET_PATH, output_path=DETOXIFIED
 
                 if not toxic_results:
                     # If entire chain non toxic, ignore
+                    print(f"--- Comment chain {idx} completed: 0/0 detoxified ---\n")
                     continue
 
                 # Step 2: Bulk evaluation for all toxic comments in this chain
+                print("\tRunning Bulk Evaluations...")
                 originals = [r["original"] for r in toxic_results]
                 detoxified = [r["detoxified"] for r in toxic_results]
                 per_comment_metrics = evaluator.run_pipeline(originals, detoxified)
@@ -138,12 +141,12 @@ def run_detox_evaluation(input_path=LABELED_PARQUET_PATH, output_path=DETOXIFIED
 
                 # Collect toxicity scores for ALL comments in the chain
                 chain_avgs = dynamic_avg_with_prefix(per_comment_metrics)
-                print("Chain Metrics:")
+                print("\tChain Metrics:")
                 for k, v in sorted(chain_avgs.items()):
-                    print(f"\t{k}: {v}")
+                    print(f"\t\t{k}: {v}")
 
                 new_avg_toxicity = sum(c["toxicity_score"] for c in comment_chain) / len(comment_chain)
-                print(f"\tAvg Chain Toxicity {old_avg_toxicity} -> {new_avg_toxicity}\n")
+                print(f"\t\tAvg Chain Toxicity {old_avg_toxicity} -> {new_avg_toxicity}\n")
 
                 extra_metrics = {
                     "chain_toxic_comment_count": len(per_comment_metrics),
@@ -157,7 +160,7 @@ def run_detox_evaluation(input_path=LABELED_PARQUET_PATH, output_path=DETOXIFIED
                 for k, v in all_metrics.items():
                     chunk.at[idx, k] = v
                 f.flush()
-                print(f"Comment chain {idx} completed: {len(toxic_results)}/{len(comment_chain)} detoxified\n")
+                print(f"--- Comment chain {idx} completed: {len(toxic_results)}/{len(comment_chain)} detoxified ---\n")
 
             # After processing all rows in this chunk, append the enriched chunk
             modified_chunks.append(chunk)

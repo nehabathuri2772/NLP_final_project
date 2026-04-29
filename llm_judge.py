@@ -3,7 +3,7 @@ import re
 from typing import Dict, Any
 
 import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 
 from constants import JUDGE_MODEL
 
@@ -11,9 +11,18 @@ class LLMJudge:
     def __init__(self):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        print(f"\nLoading LLM Judge Model ({JUDGE_MODEL})...")
+        print(f"\tLoading LLM Judge Model ({JUDGE_MODEL})...")
         self.tokenizer = AutoTokenizer.from_pretrained(JUDGE_MODEL)
-        self.model = AutoModelForCausalLM.from_pretrained(JUDGE_MODEL, device_map="auto", torch_dtype=torch.float16)
+
+        # Use bnb config to make it take less space
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.float16,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_use_double_quant=True,
+        )
+
+        self.model = AutoModelForCausalLM.from_pretrained(JUDGE_MODEL, device_map="auto", quantization_config=bnb_config)
         self.model.eval()
         print("Judge model loaded!")
 

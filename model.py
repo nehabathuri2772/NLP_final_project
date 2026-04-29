@@ -11,9 +11,10 @@ class DetoxificationModel:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
         # Load model & tokenizer
-        print(f"Loading detox model {GENERATION_MODEL} on {self.device}...")
+        print(f"Loading Detox Model ({GENERATION_MODEL}) on {self.device}...")
         self._load_model()
         self.model.eval()
+        print(f"Detox model loaded!")
 
     def _load_model(self):
         # TODO: Add check for local LoRA model

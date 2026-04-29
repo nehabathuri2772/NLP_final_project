@@ -17,19 +17,15 @@ class DetoxEvaluator:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         print(f"Loading DetoxEvaluator on {self.device}...")
 
-        print("Loading similarity model...")
-        self.sim_model = SentenceTransformer(EMBEDDING_MODEL, device=str(self.device))
+        print("\tLoading Similarity Embedding metric...")
+        self.sim_model = SentenceTransformer(EMBEDDING_MODEL, device=self.device)
 
-        print("Loading toxicity model...")
+        print("\tLoading Detoxify metric...")
         self.tox_model = Detoxify('original', device=self.device)
 
-        print("Loading ROUGE metric...")
+        print("\tLoading ROUGE metric...")
         self.rouge_scorer = rouge_scorer.RougeScorer(["rougeL"], use_stemmer=True)
 
-        print("Loading Detoxify metric...")
-        self.tox_model = Detoxify('original')
-
-        print("Loading LLM Judge model...")
         self.llm_judge = LLMJudge()
 
     def cosine_similarity(self, texts1: List[str], texts2: List[str]) -> List[float]:
@@ -60,7 +56,7 @@ class DetoxEvaluator:
         return [(len(d.split()) / len(o.split())) for o, d in zip(original, detoxified)]
 
     def bleu(self, original: List[str], detoxified: List[str]) -> List[float]:
-        smooth_f = SmoothingFunction()
+        smooth_f = SmoothingFunction().method1
 
         return [
             sentence_bleu([o.lower().split()], d.lower().split(), smoothing_function=smooth_f)

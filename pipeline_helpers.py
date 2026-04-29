@@ -4,7 +4,7 @@ import os
 import pandas as pd
 
 from constants import *
-from evaluations import DetoxEvaluator
+from evaluation_pipeline.evaluations import DetoxEvaluator
 import pyarrow.parquet as pq
 
 from model import DetoxificationModel
@@ -152,7 +152,7 @@ def run_detox_evaluation(input_path=LABELED_PARQUET_PATH, output_path=DETOXIFIED
 
                 new_avg_toxicity = sum(c["toxicity_score"] for c in comment_chain) / len(comment_chain)
                 print(f"\t\tAvg Chain Toxicity {old_avg_toxicity} -> {new_avg_toxicity}\n")
-                num_judge_failures = sum(c.get("overall", "non_toxic") is None for c in comment_chain)
+                num_judge_failures = sum(c.get("llm_overall", "non_toxic") is None for c in comment_chain)
                 print(f"\t\tLLM Judge Failures: {num_judge_failures}")
 
                 extra_metrics = {

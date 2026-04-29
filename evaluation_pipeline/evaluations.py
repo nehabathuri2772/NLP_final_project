@@ -8,7 +8,7 @@ from sentence_transformers import SentenceTransformer
 from detoxify import Detoxify
 
 from constants import EMBEDDING_MODEL
-from llm_judge import LLMJudge
+from evaluation_pipeline.llm_judge import LLMJudge
 
 
 class DetoxEvaluator:

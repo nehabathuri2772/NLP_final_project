@@ -25,6 +25,7 @@ CLEANED_PARQUET_PATH = "./data/reddit_cleaned.parquet"
 LABELED_PARQUET_PATH = "./data/reddit_cleaned_labeled.parquet"
 DETOXIFIED_PARQUET_PATH = "./data/reddit_detoxified.parquet"
 
-# Logging
+# Fine Tuning
 OUTPUT_LOG_FILE = "./data/rl_data/detoxify_output.jsonl"
+BEST_LLM_OUTPUT_FILE = "./data/rl_data/judge_best.jsonl"
 OUTPUT_CHECKPOINT_PATH = "./data/rl_data/checkpoints"

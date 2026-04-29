@@ -1,7 +1,7 @@
 import os
 
 from constants import CLEANED_PARQUET_PATH, LABELED_PARQUET_PATH
-from data_cleaning import run_cleaning_pipeline
+from cleaning_pipeline.data_cleaning import run_cleaning_pipeline
 from pipeline_helpers import load_toxic_comments, run_detox_evaluation
 
 def main():

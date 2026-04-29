@@ -1,6 +1,7 @@
 import os
 
 import torch
+from peft import LoraConfig, TaskType
 from transformers import GenerationConfig
 from trl import GRPOConfig
 
@@ -71,5 +72,13 @@ GRPO_CONFIG = GRPOConfig(
     logging_steps=10,
     save_steps=500,
     beta=0.1,
-    temperature=1.,
+    temperature=0.2,
+)
+
+LORA_CONFIG = LoraConfig(
+    r=8,
+    lora_alpha=16,
+    lora_dropout=0.05,
+    bias="none",
+    task_type=TaskType.CAUSAL_LM,
 )

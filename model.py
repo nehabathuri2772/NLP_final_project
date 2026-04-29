@@ -1,7 +1,5 @@
 import torch
-from torch import nn
-from transformers import AutoTokenizer
-from trl.experimental.ppo import AutoModelForCausalLMWithValueHead
+from transformers import AutoTokenizer, AutoModelForCausalLM
 
 from constants import GENERATION_MODEL, GENERATION_CONFIG
 
@@ -19,7 +17,7 @@ class DetoxificationModel:
     def _load_model(self):
         # TODO: Add check for local LoRA model
         self.tokenizer = AutoTokenizer.from_pretrained(GENERATION_MODEL)
-        self.model = AutoModelForCausalLMWithValueHead.from_pretrained(GENERATION_MODEL).to(self.device)
+        self.model = AutoModelForCausalLM.from_pretrained(GENERATION_MODEL, device_map="auto", dtype=torch.float16)
 
         # Add new items to gen config
         GENERATION_CONFIG.device = self.device

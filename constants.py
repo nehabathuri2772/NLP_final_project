@@ -7,6 +7,7 @@ from trl import GRPOConfig
 
 # Model Configs
 GENERATION_MODEL = "Qwen/Qwen2.5-1.5B-Instruct"
+LORA_MODEL_PATH = "model/PTSD_checkpoint-500"
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 JUDGE_MODEL = "Qwen/Qwen2.5-3B-Instruct"
 GENERATION_CONFIG = GenerationConfig(

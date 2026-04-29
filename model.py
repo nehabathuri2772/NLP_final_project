@@ -1,7 +1,7 @@
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
-from constants import GENERATION_MODEL, GENERATION_CONFIG
+from constants import GENERATION_MODEL, GENERATION_CONFIG, LORA_MODEL_PATH
 
 class DetoxificationModel:
 
@@ -15,9 +15,12 @@ class DetoxificationModel:
         print(f"Detox model loaded!")
 
     def _load_model(self):
-        # TODO: Add check for local LoRA model
         self.tokenizer = AutoTokenizer.from_pretrained(GENERATION_MODEL)
         self.model = AutoModelForCausalLM.from_pretrained(GENERATION_MODEL, device_map="auto", dtype=torch.float16)
+
+        # Check for LoRA Model
+        if os.path.exists(LORA_MODEL_PATH):
+            self.model = PeftModel.from_pretrained(self.model, LORA_MODEL_PATH)
 
         # Add new items to gen config
         GENERATION_CONFIG.device = self.device

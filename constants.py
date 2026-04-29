@@ -1,4 +1,8 @@
+import os
+
+import torch
 from transformers import GenerationConfig
+from trl import GRPOConfig
 
 # Model Configs
 GENERATION_MODEL = "Qwen/Qwen2.5-1.5B-Instruct"
@@ -32,10 +36,16 @@ PREFERENCE_OUTPUT_FILE = "./data/training_data/reward_preferences.jsonl"
 
 OUTPUT_CHECKPOINT_PATH = "./data/training_data/checkpoints"
 
+# Create any directories needed for file paths
+os.makedirs("./data", exist_ok=True)
+os.makedirs("./data/pushshift-reddit-comments", exist_ok=True)
+os.makedirs("./data/training_data", exist_ok=True)
+os.makedirs("./data/training_data/checkpoints", exist_ok=True)
+
 # Reward Model Training
 REWARD_TRAINING_STRATEGY = "PTSD"
 # 1 means higher is better, -1 means lower is better
-PARETO_METRICS = {
+REWARD_MODEL_METRICS = {
     "toxicity_change": -1,
     "cosine_similarity": 1,
     "length_ratio": 1,
@@ -48,4 +58,18 @@ MAX_PARETO_PAIRS = 20000
 
 HEURISTIC_THRESHOLD = 0.5
 JUDGE_THRESHOLD = 5
-REQUIRED_COLUMNS = ["completion", "raw_response"]
+
+# RL/SFT Training
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
+GRPO_CONFIG = GRPOConfig(
+    output_dir=OUTPUT_CHECKPOINT_PATH,
+    num_train_epochs=3,
+    gradient_accumulation_steps=2,
+    learning_rate=1e-5,
+    warmup_steps=100,
+    logging_steps=10,
+    save_steps=500,
+    beta=0.1,
+    temperature=1.,
+)

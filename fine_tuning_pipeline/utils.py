@@ -1,8 +1,10 @@
+import json
 import random
 from itertools import combinations
 from typing import Optional, List
 
 import torch
+from torch.utils.data import Dataset
 
 
 def pareto_preference_pair(vec_a: torch.Tensor, vec_b: torch.Tensor, higher_is_better: List[bool]) -> int:
@@ -108,3 +110,45 @@ def create_preference_pairs(X, pref_list: List[bool], method="PTSD", max_pairs=2
             pairs.append((vec_a, vec_b, pref))
 
     return pairs
+
+class RegressionDataset(Dataset):
+    def __init__(self, jsonl_path):
+        self.data = []
+        with open(jsonl_path, 'r') as f:
+            for line in f:
+                item = json.loads(line)
+                vec = torch.tensor(item['vector'], dtype=torch.float32)
+                score = torch.tensor(item['score'], dtype=torch.float32)
+                self.data.append((vec, score))
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        return self.data[idx]
+
+class PreferenceDataset(Dataset):
+    def __init__(self, jsonl_path):
+        self.pairs = []
+        with open(jsonl_path, 'r') as f:
+            for line in f:
+                data = json.loads(line)
+                vec_a = torch.tensor(data['vector_a'], dtype=torch.float32)
+                vec_b = torch.tensor(data['vector_b'], dtype=torch.float32)
+                pref = data['preference']
+                self.pairs.append((vec_a, vec_b, pref))
+
+    def __len__(self):
+        return len(self.pairs)
+
+    def __getitem__(self, idx):
+        return self.pairs[idx]
+
+def ranking_loss(model, vec_a, vec_b, pref):
+    score_a = model(vec_a.unsqueeze(0))
+    score_b = model(vec_b.unsqueeze(0))
+    if pref == 1:
+        logits = score_a - score_b
+    else:
+        logits = score_b - score_a
+    return -torch.log(torch.sigmoid(logits) + 1e-8).mean()

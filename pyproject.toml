@@ -9,6 +9,7 @@ dependencies = [
     "datasets>=4.8.4",
     "detoxify>=0.5.2",
     "duckdb>=1.5.2",
+    "joblib>=1.5.3",
     "nltk>=3.9.4",
     "pandas>=3.0.2",
     "peft>=0.19.1",

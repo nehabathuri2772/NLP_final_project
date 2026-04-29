@@ -10,7 +10,7 @@ from fine_tuning_pipeline.reward import AggregatorModel
 from model import DetoxificationModel
 from peft import get_peft_model
 
-REWARD_MODEL_TYPE = "ranker"
+REWARD_MODEL_TYPE = "regressor"
 REWARD_MODEL_PATH = f"{OUTPUT_CHECKPOINT_PATH}/{REWARD_MODEL_TYPE}_model.pth"
 SCALER_MODEL_PATH = f"{OUTPUT_CHECKPOINT_PATH}/{REWARD_MODEL_TYPE}_scaler.pkl"
 

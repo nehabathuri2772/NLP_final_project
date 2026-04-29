@@ -24,22 +24,22 @@ class LLMJudge:
 
         self.model = AutoModelForCausalLM.from_pretrained(JUDGE_MODEL, device_map="auto", quantization_config=bnb_config)
         self.model.eval()
-        print("Judge model loaded!")
+        print("\tJudge model loaded!")
 
     # Build prompt
     def build_prompt(self, original: str, detoxified: str) -> str:
-        return f"""You are evaluating a text detoxification system.
+        return f"""You are evaluating a text detoxification system. Compare these two comments to see if toxicity was removed while preserving meaning.
 
 Original comment: "{original}"
 Detoxified comment: "{detoxified}"
 
 Rate:
 
-1. TOXICITY_REMOVAL (1-5)
-2. MEANING_PRESERVATION (1-5)
-3. FLUENCY (1-5)
-4. REFUSAL (0 or 1)
-5. OVERALL (1-5)
+1. TOXICITY_REMOVAL (1-5) - If toxicity was truly removed
+2. MEANING_PRESERVATION (1-5) - If the meaning of the detoxified comment matches what the original comment was saying
+3. FLUENCY (1-5) - If the detoxified comment flows like the original text behavior
+4. REFUSAL (0 or 1) - If the detoxified comment has words like I'm sorry or refusal patterns
+5. OVERALL (1-5) - Overall score if all of the above were achieved
 
 Respond ONLY in JSON:
 {{

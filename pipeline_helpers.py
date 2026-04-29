@@ -110,7 +110,7 @@ def run_detox_evaluation(input_path=LABELED_PARQUET_PATH, output_path=DETOXIFIED
 
                 if not toxic_results:
                     # If entire chain non toxic, ignore
-                    print(f"--- Comment chain {idx} completed: 0/0 detoxified ---\n")
+                    print(f"--- Comment chain {idx} completed: 0/{len(comment_chain)} detoxified ---\n")
                     continue
 
                 # Step 2: Bulk evaluation for all toxic comments in this chain
@@ -147,11 +147,14 @@ def run_detox_evaluation(input_path=LABELED_PARQUET_PATH, output_path=DETOXIFIED
 
                 new_avg_toxicity = sum(c["toxicity_score"] for c in comment_chain) / len(comment_chain)
                 print(f"\t\tAvg Chain Toxicity {old_avg_toxicity} -> {new_avg_toxicity}\n")
+                num_judge_failures = sum(c.get("overall", "non_toxic") is None for c in comment_chain)
+                print(f"\t\tLLM Judge Failures: {num_judge_failures}")
 
                 extra_metrics = {
                     "chain_toxic_comment_count": len(per_comment_metrics),
                     "chain_avg_old_toxicity": old_avg_toxicity,
                     "chain_avg_new_toxicity": new_avg_toxicity,
+                    "num_judge_failures": num_judge_failures,
                 }
 
                 all_metrics = {**chain_avgs, **extra_metrics}

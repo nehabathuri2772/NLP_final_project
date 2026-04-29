@@ -73,7 +73,7 @@ def dynamic_avg_with_prefix(per_comment_metrics):
 
     return {f"avg_{k}": sums[k] / counts[k] for k in sums}
 
-def run_detox_evaluation(input_path=LABELED_PARQUET_PATH, output_path=DETOXIFIED_PARQUET_PATH, output_log_path=OUTPUT_LOG_FILE):
+def run_detox_evaluation(input_path=LABELED_PARQUET_PATH, output_path=DETOXIFIED_PARQUET_PATH, output_log_path=DETOX_OUTPUT_LOG_FILE):
     evaluator = DetoxEvaluator()
     model = DetoxificationModel()
 

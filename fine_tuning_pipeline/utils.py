@@ -1,23 +1,28 @@
 import random
 from itertools import combinations
+from typing import Optional, List
 
 import torch
 
 
-def pareto_preference_pair(vec_a: torch.Tensor, vec_b: torch.Tensor) -> int:
+def pareto_preference_pair(vec_a: torch.Tensor, vec_b: torch.Tensor, higher_is_better: List[bool]) -> int:
     """
-    Returns:
-        1 if a dominates b (a better or equal in all, strictly better in at least one)
-       -1 if b dominates a
-        0 if neither dominates (incomparable)
+    Compare two vectors using Pareto dominance.
+
+    Args:
+        vec_a, vec_b: 1D tensors of equal length
+        higher_is_better: list of booleans with same length as vectors.
+                          True  -> larger value is better for that dimension
+                          False -> smaller value is better for that dimension
+        Returns: 1 if a dominates b, -1 if b dominates a, 0 otherwise.
     """
     better_in_a = []
     better_in_b = []
     for i, (va, vb) in enumerate(zip(vec_a, vec_b)):
-        if i == 1:  # similarity: higher is better
+        if higher_is_better[i]:
             a_better = va > vb
             b_better = vb > va
-        else:  # toxicity, perplexity: lower is better
+        else:  # lower is better
             a_better = va < vb
             b_better = vb < va
         better_in_a.append(a_better)
@@ -32,19 +37,23 @@ def pareto_preference_pair(vec_a: torch.Tensor, vec_b: torch.Tensor) -> int:
     else:
         return 0
 
-def soft_dominance(vec_a, vec_b):
+def soft_dominance(vec_a: torch.Tensor, vec_b: torch.Tensor, higher_is_better: List[bool]) -> int:
     score = 0
     for i, (va, vb) in enumerate(zip(vec_a, vec_b)):
-        if i == 1:
-            if va > vb: score += 1
-            elif vb > va: score -= 1
+        if higher_is_better[i]:
+            if va > vb:
+                score += 1
+            elif vb > va:
+                score -= 1
         else:
-            if va < vb: score += 1
-            elif vb < va: score -= 1
+            if va < vb:
+                score += 1
+            elif vb < va:
+                score -= 1
     return score
 
 
-def create_preference_pairs(X, method="PTSD", max_pairs=20000):
+def create_preference_pairs(X, pref_list: List[bool], method="PTSD", max_pairs=20000):
     """
     X: numpy array of normalised metric vectors
     method:
@@ -74,10 +83,10 @@ def create_preference_pairs(X, method="PTSD", max_pairs=20000):
 
         if method == "pareto":
             # Try strict Pareto dominance first
-            pref = pareto_preference_pair(vec_a, vec_b)
+            pref = pareto_preference_pair(vec_a, vec_b, pref_list)
             if pref == 0:
                 # Fallback to soft dominance
-                score = soft_dominance(vec_a, vec_b)
+                score = soft_dominance(vec_a, vec_b, pref_list)
                 if score > 0:
                     pref = 1
                 elif score < 0:
@@ -85,9 +94,9 @@ def create_preference_pairs(X, method="PTSD", max_pairs=20000):
                 else:
                     pref = 0
         elif method == "pareto_strict":
-            pref = pareto_preference_pair(vec_a, vec_b)
+            pref = pareto_preference_pair(vec_a, vec_b, pref_list)
         else:  # method == "soft"
-            score = soft_dominance(vec_a, vec_b)
+            score = soft_dominance(vec_a, vec_b, pref_list)
             if score > 0:
                 pref = 1
             elif score < 0:

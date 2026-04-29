@@ -19,13 +19,33 @@ TOXICITY_THRESHOLD = 0.5
 REDDIT_DATASET = "fddemarco/pushshift-reddit-comments"
 LOCAL_DATASET_PATH = "./data/pushshift-reddit-comments"
 
-# Parquet file paths for input/outputs
+# File paths for input/outputs
 CONDENSED_PARQUET_PATH = "./data/cleaned_comments.parquet"
 CLEANED_PARQUET_PATH = "./data/reddit_cleaned.parquet"
 LABELED_PARQUET_PATH = "./data/reddit_cleaned_labeled.parquet"
 DETOXIFIED_PARQUET_PATH = "./data/reddit_detoxified.parquet"
 
-# Fine Tuning
-OUTPUT_LOG_FILE = "./data/rl_data/detoxify_output.jsonl"
-BEST_LLM_OUTPUT_FILE = "./data/rl_data/judge_best.jsonl"
-OUTPUT_CHECKPOINT_PATH = "./data/rl_data/checkpoints"
+DETOX_OUTPUT_LOG_FILE = "./data/training_data/detoxify_output.jsonl"
+SCORED_OUTPUT_FILE = "./data/training_data/outputs_scored.jsonl"
+SFT_OUTPUT_FILE = "./data/training_data/sft_outputs.jsonl"
+PREFERENCE_OUTPUT_FILE = "./data/training_data/reward_preferences.jsonl"
+
+OUTPUT_CHECKPOINT_PATH = "./data/training_data/checkpoints"
+
+# Reward Model Training
+REWARD_TRAINING_STRATEGY = "PTSD"
+# 1 means higher is better, -1 means lower is better
+PARETO_METRICS = {
+    "toxicity_change": -1,
+    "cosine_similarity": 1,
+    "length_ratio": 1,
+    "rougeL": 1,
+    "llm_meaning_preservation": 1,
+    "llm_fluency": 1,
+    "llm_overall": 1,
+}
+MAX_PARETO_PAIRS = 20000
+
+HEURISTIC_THRESHOLD = 0.5
+JUDGE_THRESHOLD = 5
+REQUIRED_COLUMNS = ["completion", "raw_response"]

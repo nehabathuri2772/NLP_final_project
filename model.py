@@ -1,4 +1,7 @@
+import os
+
 import torch
+from peft import PeftModel
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 from constants import GENERATION_MODEL, GENERATION_CONFIG, LORA_MODEL_PATH
@@ -20,6 +23,7 @@ class DetoxificationModel:
 
         # Check for LoRA Model
         if os.path.exists(LORA_MODEL_PATH):
+            print(f"Loading LoRA Model from: {LORA_MODEL_PATH}...")
             self.model = PeftModel.from_pretrained(self.model, LORA_MODEL_PATH)
 
         # Add new items to gen config

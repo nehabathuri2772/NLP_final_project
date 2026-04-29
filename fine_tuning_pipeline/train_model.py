@@ -58,8 +58,10 @@ class GRPOTrainingPipeline:
             [e[metric] if e[metric] is not None else 0.0 for metric in REWARD_MODEL_METRICS.keys()]
             for e in evals
         ], dtype=np.float32)
-        norm = self.scaler.transform(raw) # shape (batch_size, n_features)
-        return norm
+
+        if REWARD_MODEL_TYPE != "regressor":
+            raw = self.scaler.transform(raw) # shape (batch_size, n_features)
+        return raw
 
     def get_reward(self, original_texts: list, detoxified_texts: list):
         """Reward from the metric reward model."""

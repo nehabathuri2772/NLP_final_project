@@ -1,4 +1,5 @@
 import json
+import os
 
 import pandas as pd
 
@@ -78,6 +79,10 @@ def run_detox_evaluation(input_path=LABELED_PARQUET_PATH, output_path=DETOXIFIED
 
     parquet_file = pq.ParquetFile(input_path)
     modified_chunks = []
+
+    # Remove log file existing
+    if os.path.exists(output_log_path):
+        os.remove(output_log_path)
 
     with open(output_log_path, "a") as f:
         for i, batch in enumerate(parquet_file.iter_batches(batch_size=PARQUET_LOAD_CHUNK_SIZE)):

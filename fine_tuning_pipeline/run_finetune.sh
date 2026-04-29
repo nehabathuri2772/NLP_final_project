@@ -30,6 +30,7 @@ echo "uv version: $(uv --version)"
 
 # Load venv
 uv sync
+source .venv/bin/activate
 
 # Run training
 python -u -m fine_tuning_pipeline.train_model
